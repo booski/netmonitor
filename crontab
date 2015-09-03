@@ -1,0 +1,3 @@
+MAILTO=netmonitor@dsv.su.se
+
+#*/5 * * * *	root	/opt/netmonitor/netmonitor.sh
