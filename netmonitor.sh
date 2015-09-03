@@ -26,7 +26,10 @@ walk() {
     local host="$2"
     local mib="$3"
 
-    snmpwalk -v 1 -c "$secret" -OQ "$host" "$mib" | sed -e "s/$mib\.//" -e 's/"//g' -e 's/ //g'
+    #echo "walk $secret $host $mib" >&2
+
+    snmpwalk -v1 -r0 -c "$secret" -OQ "$host" "$mib" 2>/dev/null \
+	| sed -e "s/$mib\.//" -e 's/"//g' -e 's/ //g'
 }
 
 swalk() {
@@ -48,7 +51,7 @@ sget() {
 declare -A mac_ip_mappings
 starttime=$(stamp)
 
-for line in $(walk "$secret" "$router" "$ip_mac_mib") # | while read line
+for line in $(walk "$secret" "$router" "$ip_mac_mib")
 do
     ip=$(echo "$line" | cut -d= -f1 | cut -d. -f3-)
     mac=$(echo "$line" | cut -d= -f2 | sed -r 's/(..)/&:/g;s/:$//')
@@ -88,7 +91,8 @@ do
 	
 	for line in $(swalk "$switch" "$mac_id_mib" "$vlan")
 	do
-	    mac=$(printf '%02X:%02X:%02X:%02X:%02X:%02X\n' $(echo "$line" | cut -d= -f1 | tr '.' ' '))
+	    mac=$(printf '%02X:%02X:%02X:%02X:%02X:%02X\n' \
+		$(echo "$line" | cut -d= -f1 | tr '.' ' '))
 	    portid=$(echo "$line" | cut -d= -f2)
 	    portnum=$(sget "$switch" "$id_port_mib.$portid" "$vlan")
 	    portname=$(sget "$switch" "$port_name_mib.$portnum" "$vlan")
