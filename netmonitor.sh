@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+cd /opt/netmonitor
 
 router="nod-gw1.su.se"
 switches="./switches.conf"
@@ -8,6 +9,7 @@ vlans="./vlans.conf"
 logfolder="/var/log/netmonitor"
 map="$logfolder/connection.map"
 log="$logfolder/mappings.log"
+secret=$(cat ./secret.conf)
 
 ip_mac_mib=iso.3.6.1.2.1.3.1.1.2
 mac_id_mib=iso.3.6.1.2.1.17.4.3.1.2
@@ -16,7 +18,7 @@ port_name_mib=iso.3.6.1.2.1.31.1.1.1.1
 port_comment_mib=iso.3.6.1.2.1.31.1.1.1.18
 
 stamp() {
-    date --rfc-3339=seconds
+    date '+%F %T'
 }
 
 walk() {
@@ -28,36 +30,30 @@ walk() {
 }
 
 swalk() {
-    local secret="$1"
-    local host="$2"
-    local mib="$3"
-    local vlan="$4"
+    local host="$1" && shift
+    local mib="$1" && shift
+    local vlan="$1" && shift
 
-    walk "$secret"@"$vlan" "$host" "$mib"
+    walk "${secret}@${vlan}" "$host" "$mib"
 }
 
 sget() {
-    local secret="$1"
-    local host="$2"
-    local mib="$3"
-    local vlan="$4"
+    local host="$1" && shift
+    local mib="$1" && shift
+    local vlan="$1" && shift
 
-    swalk "$secret" "$host" "$mib" "$vlan" | cut -d= -f2
+    swalk "$host" "$mib" "$vlan" | cut -d= -f2
 }
-
-cd /opt/netmonitor
-secret=$(cat ./secret.conf)
 
 declare -A mac_ip_mappings
 starttime=$(stamp)
 
-walk dsv "$router" "$ip_mac_mib" | while read line
+for line in $(walk "$secret" "$router" "$ip_mac_mib") # | while read line
 do
     ip=$(echo "$line" | cut -d= -f1 | cut -d. -f3-)
     mac=$(echo "$line" | cut -d= -f2 | sed -r 's/(..)/&:/g;s/:$//')
     mac_ip_mappings["$mac"]="$ip"
 done
-
 
 if [ -e "$map" ]; then
     mv "$map" "$map.old"
@@ -90,24 +86,29 @@ do
 	    continue
 	fi
 	
-	for line in $(swalk dsv-test "$switch" "$mac_id_mib" "$vlan")
+	for line in $(swalk "$switch" "$mac_id_mib" "$vlan")
 	do
 	    mac=$(printf '%02X:%02X:%02X:%02X:%02X:%02X\n' $(echo "$line" | cut -d= -f1 | tr '.' ' '))
 	    portid=$(echo "$line" | cut -d= -f2)
-	    portnum=$(sget dsv-test "$switch" "$id_port_mib.$portid" "$vlan")
-	    portname=$(sget dsv-test "$switch" "$port_name_mib.$portnum" "$vlan")
-	    portcomment=$(sget dsv-test "$switch" "$port_comment_mib.$portnum" "$vlan")
+	    portnum=$(sget "$switch" "$id_port_mib.$portid" "$vlan")
+	    portname=$(sget "$switch" "$port_name_mib.$portnum" "$vlan")
+	    portcomment=$(sget "$switch" "$port_comment_mib.$portnum" "$vlan")
+
+	    if ! [ "${portname:0:2}" = "Gi" ]; then
+		continue
+	    fi
 	    
-	    echo "$(stamp) $shortswitch $portname $portcomment $vlan: ${mac_ip_mappings["$mac"]} $mac" >> "$map"
+	    {
+		echo -n "$(stamp) $shortswitch $portname $portcomment vlan$vlan: "
+		echo "${mac_ip_mappings["$mac"]} $mac"
+	    } >> "$map"
 	done
     done < $vlans
 done < $switches
 endtime=$(stamp)
 
-sort "$map" -o "$map"
-
-cut -d@ -f2 "$map" | sed "s/^ *//" > "$map.tmp"
-cut -d@ -f2 "$map.old" | sed "s/^ *//" > "$map.old.tmp"
+cut -d' ' -f3- "$map" | sed "s/^ *//" | sort -k3 > "$map.tmp"
+cut -d' ' -f3- "$map.old" | sed "s/^ *//" | sort -k3 > "$map.old.tmp"
 
 {
     echo "$starttime Scan started"
