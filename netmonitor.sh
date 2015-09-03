@@ -24,7 +24,7 @@ walk() {
     local host="$2"
     local mib="$3"
 
-    snmpwalk -v 1 -c "$secret" -OQ "$host" "$mib" | sed -e "s/$mib\.//" -e "s/ //g" -e 's/"//g'
+    snmpwalk -v 1 -c "$secret" -OQ "$host" "$mib" | sed -e "s/$mib\.//" -e 's/"//g' -e 's/ //g'
 }
 
 swalk() {
@@ -51,14 +51,13 @@ secret=$(cat ./secret.conf)
 declare -A mac_ip_mappings
 starttime=$(stamp)
 
-for line in $(walk dsv "$router" "$ip_mac_mib" \
-    | cut -d. -f13- \
-    | sed -r -e 's/ *$//' -e 's/ /:/g')
+walk dsv "$router" "$ip_mac_mib" | while read line
 do
-    ip=$(echo "$line" | cut -d= -f1)
-    mac=$(echo "$line" | cut -d= -f2)
+    ip=$(echo "$line" | cut -d= -f1 | cut -d. -f3-)
+    mac=$(echo "$line" | cut -d= -f2 | sed -r 's/(..)/&:/g;s/:$//')
     mac_ip_mappings["$mac"]="$ip"
 done
+
 
 if [ -e "$map" ]; then
     mv "$map" "$map.old"
@@ -99,7 +98,7 @@ do
 	    portname=$(sget dsv-test "$switch" "$port_name_mib.$portnum" "$vlan")
 	    portcomment=$(sget dsv-test "$switch" "$port_comment_mib.$portnum" "$vlan")
 	    
-	    echo "$(stamp) $shortswitch $portname $portcomment: ${mac_ip_mappings["$mac"]} $mac" >> "$map"
+	    echo "$(stamp) $shortswitch $portname $portcomment $vlan: ${mac_ip_mappings["$mac"]} $mac" >> "$map"
 	done
     done < $vlans
 done < $switches
