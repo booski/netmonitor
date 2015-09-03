@@ -1,0 +1,9 @@
+/var/log/netmonitor/*.log {
+	weekly
+	rotate 52
+	compress
+	delaycompress
+	notifempty
+	missingok
+	create 644 root adm
+}
