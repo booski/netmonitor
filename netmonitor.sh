@@ -22,11 +22,9 @@ stamp() {
 }
 
 walk() {
-    local secret="$1"
-    local host="$2"
-    local mib="$3"
-
-    #echo "walk $secret $host $mib" >&2
+    local secret="$1" && shift
+    local host="$1" && shift
+    local mib="$1" && shift
 
     snmpwalk -v1 -r0 -c "$secret" -OQ "$host" "$mib" 2>/dev/null \
 	| sed -e "s/$mib\.//" -e 's/"//g' -e 's/ //g'
