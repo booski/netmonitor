@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -e
+
+if ! [ "$#" = 1 ]; then
+   echo "Invalid argument, use --help or -h for usage information." >&2
+   exit 1
+fi
+
+hostname=$1 && shift
+
+if [ "$hostname" = "-h" ] || [ "$hostname" = "--help" ]; then
+   echo "nmgrep, find the last known information about a hostname"
+   echo "Usage: nmgrep <hostname> | --help | -h"
+   exit 0
+fi
+
+grep -F $(host "$hostname" | cut -d' ' -f4) /var/log/netmonitor/mappings.log | tail -n1 || true
