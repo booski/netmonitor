@@ -2,6 +2,10 @@
 
 set -e
 
+find_host() {
+    zgrep -F "$(host "$1" | cut -d' ' -f4)" "$2" | tail -n1
+}
+
 if ! [ "$#" = 1 ]; then
    echo "Invalid argument, use --help or -h for usage information." >&2
    exit 1
@@ -15,4 +19,12 @@ if [ "$hostname" = "-h" ] || [ "$hostname" = "--help" ]; then
    exit 0
 fi
 
-grep -F $(host "$hostname" | cut -d' ' -f4) /var/log/netmonitor/mappings.log | tail -n1 || true
+cd /var/log/netmonitor
+
+for logfile in mappings.*; do
+    result=$(find_host "$hostname" "$logfile")
+    if ! [ -z "$result" ]; then
+	exit 0
+    fi
+done
+exit 0
