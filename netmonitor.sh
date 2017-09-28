@@ -72,7 +72,7 @@ do
     if ! ping -c3 -w3 "$switch" >/dev/null 2>&1; then
 	if ! [ -e "$logfolder/$switch.down" ]; then 
 	    touch "$logfolder/$switch.down"
-	    echo "$(stamp) - $name"
+	    echo "$(stamp) - $switch"
 	fi
 	continue
     elif [ -e "$logfolder/$switch.down" ]; then
