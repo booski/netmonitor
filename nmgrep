@@ -24,6 +24,7 @@ cd /var/log/netmonitor
 for logfile in mappings.*; do
     result=$(find_host "$hostname" "$logfile")
     if ! [ -z "$result" ]; then
+    	echo "$result"
 	exit 0
     fi
 done
